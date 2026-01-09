@@ -1,0 +1,1322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Particle Face & Hand Tracker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            background: #000;
+            color: #fff;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Intro Screen */
+        .intro-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(135deg, #1a1a2e 0%, #0f0f1e 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .intro-content {
+            text-align: center;
+            animation: fadeInUp 1s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .intro-title {
+            font-size: 3em;
+            font-weight: 700;
+            margin-bottom: 20px;
+            background: linear-gradient(90deg, #00d4ff, #ff00ff, #00d4ff);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: gradientShift 3s ease infinite;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .intro-description {
+            font-size: 1.2em;
+            color: #aaa;
+            margin-bottom: 40px;
+        }
+
+        .enable-camera-btn {
+            padding: 18px 48px;
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #fff;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+
+        .enable-camera-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.6);
+        }
+
+        .enable-camera-btn:active {
+            transform: translateY(0);
+        }
+
+        /* App Container */
+        .app-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #000;
+        }
+
+        /* Particle Canvas */
+        #particle-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+        }
+
+        /* Camera Preview Overlay */
+        .camera-preview {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 256px;
+            height: 144px;
+            border: 2px solid rgba(0, 212, 255, 0.5);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            background: #000;
+        }
+
+        #camera-video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+        }
+
+        #overlay-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        /* Controls */
+        .controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 10;
+        }
+
+        .control-btn {
+            padding: 12px 24px;
+            font-size: 0.95em;
+            font-weight: 600;
+            color: #fff;
+            background: rgba(20, 20, 30, 0.8);
+            border: 1px solid rgba(0, 212, 255, 0.5);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            min-width: 150px;
+            text-align: left;
+        }
+
+        .control-btn:hover {
+            background: rgba(30, 30, 40, 0.9);
+            border-color: rgba(0, 212, 255, 0.8);
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.3);
+        }
+
+        /* Status Indicator */
+        .status-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 12px 24px;
+            background: rgba(20, 20, 30, 0.8);
+            border: 1px solid rgba(255, 100, 100, 0.5);
+            border-radius: 8px;
+            backdrop-filter: blur(10px);
+            z-index: 10;
+        }
+
+        .status-indicator.detecting {
+            border-color: rgba(100, 255, 100, 0.5);
+        }
+
+        .status-indicator.prompt {
+            border-color: rgba(255, 200, 100, 0.5);
+        }
+
+        #status-text {
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+
+        /* Keyboard Shortcuts Panel */
+        .shortcuts-panel {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            padding: 20px;
+            background: rgba(20, 20, 30, 0.8);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 8px;
+            backdrop-filter: blur(10px);
+            z-index: 10;
+            min-width: 220px;
+        }
+
+        .shortcuts-panel h3 {
+            font-size: 1em;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #00d4ff;
+        }
+
+        .shortcut-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .shortcut-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .shortcut-key {
+            display: inline-block;
+            padding: 6px 12px;
+            background: rgba(0, 212, 255, 0.2);
+            border: 1px solid rgba(0, 212, 255, 0.5);
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: 600;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        .shortcut-desc {
+            font-size: 0.85em;
+            color: #aaa;
+            margin-left: 10px;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .intro-title {
+                font-size: 2em;
+            }
+
+            .camera-preview {
+                width: 192px;
+                height: 108px;
+            }
+
+            .shortcuts-panel {
+                bottom: 10px;
+                right: 10px;
+                padding: 15px;
+                font-size: 0.9em;
+            }
+
+            .controls {
+                top: 10px;
+                left: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Intro Screen -->
+    <div id="intro-screen" class="intro-screen">
+        <div class="intro-content">
+            <h1 class="intro-title">Particle Tracking Experience</h1>
+            <p class="intro-description">Watch thousands of particles flow to form your hands and face in real-time</p>
+            <button id="enable-camera-btn" class="enable-camera-btn">Enable Camera</button>
+        </div>
+    </div>
+
+    <!-- Main App Container -->
+    <div id="app-container" class="app-container hidden">
+        <!-- Particle Canvas (fullscreen) -->
+        <canvas id="particle-canvas"></canvas>
+
+        <!-- Camera Preview Overlay -->
+        <div id="camera-preview" class="camera-preview">
+            <video id="camera-video" autoplay playsinline></video>
+            <canvas id="overlay-canvas"></canvas>
+        </div>
+
+        <!-- UI Controls -->
+        <div id="controls" class="controls">
+            <button id="mode-toggle-btn" class="control-btn">Mode: Attract</button>
+            <button id="theme-btn" class="control-btn">Theme: Rainbow</button>
+        </div>
+
+        <!-- Status Indicator -->
+        <div id="status-indicator" class="status-indicator">
+            <span id="status-text">Initializing...</span>
+        </div>
+
+        <!-- Keyboard Shortcuts Panel -->
+        <div id="shortcuts-panel" class="shortcuts-panel">
+            <h3>Keyboard Shortcuts</h3>
+            <div class="shortcut-row">
+                <span class="shortcut-key">SPACE</span>
+                <span class="shortcut-desc">Toggle Mode</span>
+            </div>
+            <div class="shortcut-row">
+                <span class="shortcut-key">V</span>
+                <span class="shortcut-desc">Toggle Camera</span>
+            </div>
+            <div class="shortcut-row">
+                <span class="shortcut-key">T</span>
+                <span class="shortcut-desc">Change Theme</span>
+            </div>
+            <div class="shortcut-row">
+                <span class="shortcut-key">Fist</span>
+                <span class="shortcut-desc">Cycle Theme</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- MediaPipe Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+
+    <!-- Application Script -->
+    <script type="module">
+        // ============================================================================
+        // THEMES MODULE
+        // ============================================================================
+        const THEMES = {
+            Rainbow: {
+                name: 'Rainbow',
+                colors: [
+                    { r: 255, g: 0, b: 0 },
+                    { r: 255, g: 127, b: 0 },
+                    { r: 255, g: 255, b: 0 },
+                    { r: 0, g: 255, b: 0 },
+                    { r: 0, g: 0, b: 255 },
+                    { r: 75, g: 0, b: 130 },
+                    { r: 148, g: 0, b: 211 }
+                ],
+                getColor(index, total) {
+                    const colorIndex = Math.floor((index / total) * this.colors.length);
+                    return this.colors[colorIndex % this.colors.length];
+                }
+            },
+
+            Fire: {
+                name: 'Fire',
+                colors: [
+                    { r: 255, g: 0, b: 0 },
+                    { r: 255, g: 69, b: 0 },
+                    { r: 255, g: 140, b: 0 },
+                    { r: 255, g: 165, b: 0 },
+                    { r: 255, g: 215, b: 0 },
+                    { r: 255, g: 255, b: 0 }
+                ],
+                getColor(index, total) {
+                    const t = (index / total) * this.colors.length;
+                    const idx = Math.floor(t);
+                    const frac = t - idx;
+
+                    const c1 = this.colors[idx % this.colors.length];
+                    const c2 = this.colors[(idx + 1) % this.colors.length];
+
+                    return {
+                        r: Math.floor(c1.r + (c2.r - c1.r) * frac),
+                        g: Math.floor(c1.g + (c2.g - c1.g) * frac),
+                        b: Math.floor(c1.b + (c2.b - c1.b) * frac)
+                    };
+                }
+            },
+
+            Ocean: {
+                name: 'Ocean',
+                colors: [
+                    { r: 0, g: 105, b: 148 },
+                    { r: 0, g: 150, b: 199 },
+                    { r: 0, g: 191, b: 255 },
+                    { r: 64, g: 224, b: 208 },
+                    { r: 127, g: 255, b: 212 },
+                    { r: 175, g: 238, b: 238 }
+                ],
+                getColor(index, total) {
+                    const t = (index / total) * this.colors.length;
+                    const idx = Math.floor(t);
+                    const frac = t - idx;
+
+                    const c1 = this.colors[idx % this.colors.length];
+                    const c2 = this.colors[(idx + 1) % this.colors.length];
+
+                    return {
+                        r: Math.floor(c1.r + (c2.r - c1.r) * frac),
+                        g: Math.floor(c1.g + (c2.g - c1.g) * frac),
+                        b: Math.floor(c1.b + (c2.b - c1.b) * frac)
+                    };
+                }
+            },
+
+            Galaxy: {
+                name: 'Galaxy',
+                colors: [
+                    { r: 25, g: 25, b: 112 },
+                    { r: 72, g: 61, b: 139 },
+                    { r: 138, g: 43, b: 226 },
+                    { r: 148, g: 0, b: 211 },
+                    { r: 186, g: 85, b: 211 },
+                    { r: 255, g: 0, b: 255 },
+                    { r: 255, g: 105, b: 180 }
+                ],
+                getColor(index, total) {
+                    const t = (index / total) * this.colors.length;
+                    const idx = Math.floor(t);
+                    const frac = t - idx;
+
+                    const c1 = this.colors[idx % this.colors.length];
+                    const c2 = this.colors[(idx + 1) % this.colors.length];
+
+                    return {
+                        r: Math.floor(c1.r + (c2.r - c1.r) * frac),
+                        g: Math.floor(c1.g + (c2.g - c1.g) * frac),
+                        b: Math.floor(c1.b + (c2.b - c1.b) * frac)
+                    };
+                }
+            },
+
+            Matrix: {
+                name: 'Matrix',
+                colors: [
+                    { r: 0, g: 50, b: 0 },
+                    { r: 0, g: 100, b: 0 },
+                    { r: 0, g: 150, b: 0 },
+                    { r: 0, g: 200, b: 0 },
+                    { r: 0, g: 255, b: 0 },
+                    { r: 150, g: 255, b: 150 }
+                ],
+                getColor(index, total) {
+                    const t = (index / total) * this.colors.length;
+                    const idx = Math.floor(t);
+                    const frac = t - idx;
+
+                    const c1 = this.colors[idx % this.colors.length];
+                    const c2 = this.colors[(idx + 1) % this.colors.length];
+
+                    return {
+                        r: Math.floor(c1.r + (c2.r - c1.r) * frac),
+                        g: Math.floor(c1.g + (c2.g - c1.g) * frac),
+                        b: Math.floor(c1.b + (c2.b - c1.b) * frac)
+                    };
+                }
+            }
+        };
+
+        const THEME_NAMES = Object.keys(THEMES);
+
+        function getNextTheme(currentTheme) {
+            const currentIndex = THEME_NAMES.indexOf(currentTheme);
+            const nextIndex = (currentIndex + 1) % THEME_NAMES.length;
+            return THEME_NAMES[nextIndex];
+        }
+
+        // ============================================================================
+        // PARTICLE SYSTEM MODULE
+        // ============================================================================
+        const PHI = 1.618033988749895;
+        const INV_PHI = 1 / PHI;
+
+        class Particle {
+            constructor(x, y, index, total) {
+                this.x = x;
+                this.y = y;
+                this.vx = 0;
+                this.vy = 0;
+                this.targetX = x;
+                this.targetY = y;
+                this.index = index;
+                this.total = total;
+                this.trail = [];
+                this.maxTrailLength = 8;
+            }
+
+            update(targetX, targetY, mode, speed = 0.15) {
+                this.targetX = targetX;
+                this.targetY = targetY;
+
+                const dx = targetX - this.x;
+                const dy = targetY - this.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (mode === 'attract') {
+                    const force = Math.min(distance * 0.01, 1);
+                    this.vx += dx * speed * force;
+                    this.vy += dy * speed * force;
+                } else {
+                    if (distance < 200) {
+                        const force = (200 - distance) / 200;
+                        this.vx -= dx * 0.05 * force;
+                        this.vy -= dy * 0.05 * force;
+                    }
+                }
+
+                this.vx *= 0.85;
+                this.vy *= 0.85;
+
+                if (this.trail.length === 0 ||
+                    Math.abs(this.x - this.trail[0].x) > 2 ||
+                    Math.abs(this.y - this.trail[0].y) > 2) {
+                    this.trail.unshift({ x: this.x, y: this.y });
+                    if (this.trail.length > this.maxTrailLength) {
+                        this.trail.pop();
+                    }
+                }
+
+                this.x += this.vx;
+                this.y += this.vy;
+            }
+
+            draw(ctx, theme) {
+                const color = THEMES[theme].getColor(this.index, this.total);
+
+                for (let i = 1; i < this.trail.length; i++) {
+                    const alpha = (1 - i / this.trail.length) * 0.3;
+                    const size = (1 - i / this.trail.length) * 1.5;
+
+                    ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`;
+                    ctx.beginPath();
+                    ctx.arc(this.trail[i].x, this.trail[i].y, size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                ctx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 2, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        class ParticleSystem {
+            constructor(canvas) {
+                this.canvas = canvas;
+                this.ctx = canvas.getContext('2d');
+                this.particles = [];
+                this.targets = [];
+                this.mode = 'attract';
+                this.theme = 'Rainbow';
+                this.particleCount = 12000;
+
+                this.resize();
+                this.initParticles();
+            }
+
+            resize() {
+                this.canvas.width = window.innerWidth;
+                this.canvas.height = window.innerHeight;
+                this.width = this.canvas.width;
+                this.height = this.canvas.height;
+            }
+
+            initParticles() {
+                this.particles = [];
+
+                for (let i = 0; i < this.particleCount; i++) {
+                    const angle = i * PHI * Math.PI * 2;
+                    const radius = Math.sqrt(i / this.particleCount) * Math.min(this.width, this.height) * 0.4;
+
+                    const x = this.width / 2 + Math.cos(angle) * radius;
+                    const y = this.height / 2 + Math.sin(angle) * radius;
+
+                    this.particles.push(new Particle(x, y, i, this.particleCount));
+                }
+            }
+
+            setTargets(targets) {
+                this.targets = targets;
+            }
+
+            toggleMode() {
+                this.mode = this.mode === 'attract' ? 'repel' : 'attract';
+                return this.mode;
+            }
+
+            setTheme(theme) {
+                this.theme = theme;
+            }
+
+            distributeParticles() {
+                if (this.targets.length === 0) return;
+
+                let currentParticleIndex = 0;
+
+                this.targets.forEach(target => {
+                    const particlesForTarget = Math.floor(this.particleCount * target.weight);
+
+                    for (let i = 0; i < particlesForTarget && currentParticleIndex < this.particles.length; i++) {
+                        const particle = this.particles[currentParticleIndex];
+
+                        const t = i / particlesForTarget;
+                        const goldenAngle = t * PHI * Math.PI * 2;
+
+                        const spread = target.spread * (0.5 + Math.sqrt(t) * 0.5);
+                        const offsetX = Math.cos(goldenAngle) * spread;
+                        const offsetY = Math.sin(goldenAngle) * spread;
+
+                        const targetX = target.x + offsetX;
+                        const targetY = target.y + offsetY;
+
+                        particle.update(targetX, targetY, this.mode);
+                        currentParticleIndex++;
+                    }
+                });
+            }
+
+            update() {
+                this.distributeParticles();
+            }
+
+            render() {
+                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+                this.ctx.fillRect(0, 0, this.width, this.height);
+
+                for (const particle of this.particles) {
+                    particle.draw(this.ctx, this.theme);
+                }
+            }
+
+            animate() {
+                this.update();
+                this.render();
+            }
+        }
+
+        function createTargetsFromLandmarks(landmarks, type, canvasWidth, canvasHeight, videoWidth, videoHeight) {
+            const targets = [];
+
+            if (type === 'hand') {
+                const connections = [
+                    [0, 1], [0, 5], [0, 9], [0, 13], [0, 17],
+                    [1, 2], [2, 3], [3, 4],
+                    [5, 6], [6, 7], [7, 8],
+                    [9, 10], [10, 11], [11, 12],
+                    [13, 14], [14, 15], [15, 16],
+                    [17, 18], [18, 19], [19, 20]
+                ];
+
+                connections.forEach(([start, end]) => {
+                    const startLm = landmarks[start];
+                    const endLm = landmarks[end];
+
+                    let spread;
+                    if (end === 4 || end === 8 || end === 12 || end === 16 || end === 20) {
+                        spread = 3;
+                    } else if (end > 5) {
+                        spread = 6;
+                    } else {
+                        spread = 12;
+                    }
+
+                    const steps = Math.floor(10 * PHI);
+                    for (let i = 0; i <= steps; i++) {
+                        const t = i / steps;
+                        const goldenT = t * INV_PHI + (1 - t) * t;
+
+                        const x = (startLm.x * (1 - goldenT) + endLm.x * goldenT) * canvasWidth;
+                        const y = (startLm.y * (1 - goldenT) + endLm.y * goldenT) * canvasHeight;
+
+                        targets.push({
+                            x,
+                            y,
+                            spread: spread * (0.8 + Math.random() * 0.4),
+                            weight: 0.3 / connections.length / steps
+                        });
+                    }
+                });
+            } else if (type === 'face') {
+                landmarks.forEach((lm, index) => {
+                    const x = lm.x * canvasWidth;
+                    const y = lm.y * canvasHeight;
+
+                    let depth = 0;
+                    if (index >= 1 && index <= 4) depth = 5;
+                    if (index >= 234 && index <= 454) depth = 3;
+                    if ((index >= 33 && index <= 133) || (index >= 362 && index <= 263)) depth = 4;
+
+                    targets.push({
+                        x: x,
+                        y: y - depth,
+                        spread: 1.5,
+                        weight: 0.7 / landmarks.length
+                    });
+                });
+            }
+
+            return targets;
+        }
+
+        // ============================================================================
+        // TRACKING MODULE
+        // ============================================================================
+        class Tracker {
+            constructor(videoElement, overlayCanvas, onResultsCallback) {
+                this.video = videoElement;
+                this.overlayCanvas = overlayCanvas;
+                this.overlayCtx = overlayCanvas.getContext('2d');
+                this.onResultsCallback = onResultsCallback;
+
+                this.hands = null;
+                this.faceMesh = null;
+                this.camera = null;
+
+                this.handResults = null;
+                this.faceResults = null;
+                this.isDetecting = false;
+
+                this.FACE_OVAL = [
+                    10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288,
+                    397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136,
+                    172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109
+                ];
+
+                this.LEFT_EYE = [
+                    33, 7, 163, 144, 145, 153, 154, 155, 133,
+                    173, 157, 158, 159, 160, 161, 246
+                ];
+
+                this.RIGHT_EYE = [
+                    362, 382, 381, 380, 374, 373, 390, 249,
+                    263, 466, 388, 387, 386, 385, 384, 398
+                ];
+
+                this.LIPS = [
+                    61, 146, 91, 181, 84, 17, 314, 405, 321, 375,
+                    291, 409, 270, 269, 267, 0, 37, 39, 40, 185
+                ];
+            }
+
+            async initialize() {
+                try {
+                    this.hands = new Hands({
+                        locateFile: (file) => {
+                            return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+                        }
+                    });
+
+                    this.hands.setOptions({
+                        maxNumHands: 2,
+                        modelComplexity: 1,
+                        minDetectionConfidence: 0.5,
+                        minTrackingConfidence: 0.5
+                    });
+
+                    this.hands.onResults((results) => this.onHandsResults(results));
+
+                    this.faceMesh = new FaceMesh({
+                        locateFile: (file) => {
+                            return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
+                        }
+                    });
+
+                    this.faceMesh.setOptions({
+                        maxNumFaces: 1,
+                        refineLandmarks: true,
+                        minDetectionConfidence: 0.5,
+                        minTrackingConfidence: 0.5
+                    });
+
+                    this.faceMesh.onResults((results) => this.onFaceResults(results));
+
+                    await this.startCamera();
+
+                    return true;
+                } catch (error) {
+                    console.error('Failed to initialize tracker:', error);
+                    throw error;
+                }
+            }
+
+            async startCamera() {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            width: 640,
+                            height: 360,
+                            facingMode: 'user'
+                        }
+                    });
+
+                    this.video.srcObject = stream;
+
+                    await new Promise((resolve) => {
+                        this.video.onloadedmetadata = () => {
+                            this.overlayCanvas.width = 256;
+                            this.overlayCanvas.height = 144;
+                            resolve();
+                        };
+                    });
+
+                    this.processFrame();
+                } catch (error) {
+                    console.error('Failed to start camera:', error);
+                    throw error;
+                }
+            }
+
+            async processFrame() {
+                if (!this.video || !this.hands || !this.faceMesh) return;
+
+                const useHands = Math.floor(Date.now() / 50) % 2 === 0;
+
+                try {
+                    if (useHands && this.hands) {
+                        await this.hands.send({ image: this.video });
+                    } else if (this.faceMesh) {
+                        await this.faceMesh.send({ image: this.video });
+                    }
+                } catch (error) {
+                    console.error('Error processing frame:', error);
+                }
+
+                requestAnimationFrame(() => this.processFrame());
+            }
+
+            onHandsResults(results) {
+                this.handResults = results;
+                this.updateDetectionStatus();
+                this.drawOverlay();
+                this.updateTargets();
+            }
+
+            onFaceResults(results) {
+                this.faceResults = results;
+                this.updateDetectionStatus();
+                this.drawOverlay();
+                this.updateTargets();
+            }
+
+            updateDetectionStatus() {
+                const hasHands = this.handResults && this.handResults.multiHandLandmarks &&
+                                this.handResults.multiHandLandmarks.length > 0;
+                const hasFace = this.faceResults && this.faceResults.multiFaceLandmarks &&
+                               this.faceResults.multiFaceLandmarks.length > 0;
+
+                this.isDetecting = hasHands || hasFace;
+            }
+
+            drawOverlay() {
+                const ctx = this.overlayCtx;
+                ctx.clearRect(0, 0, this.overlayCanvas.width, this.overlayCanvas.height);
+
+                ctx.save();
+                ctx.scale(-1, 1);
+                ctx.translate(-this.overlayCanvas.width, 0);
+
+                if (this.handResults && this.handResults.multiHandLandmarks) {
+                    this.handResults.multiHandLandmarks.forEach((landmarks, index) => {
+                        const handedness = this.handResults.multiHandedness[index].label;
+                        const color = handedness === 'Left' ? '#00ffff' : '#ff00ff';
+                        this.drawHandSkeleton(landmarks, color);
+                    });
+                }
+
+                if (this.faceResults && this.faceResults.multiFaceLandmarks) {
+                    this.faceResults.multiFaceLandmarks.forEach((landmarks) => {
+                        this.drawFaceMesh(landmarks);
+                    });
+                }
+
+                ctx.restore();
+            }
+
+            drawHandSkeleton(landmarks, color) {
+                const ctx = this.overlayCtx;
+                const width = this.overlayCanvas.width;
+                const height = this.overlayCanvas.height;
+
+                const connections = [
+                    [0, 1], [1, 2], [2, 3], [3, 4],
+                    [0, 5], [5, 6], [6, 7], [7, 8],
+                    [0, 9], [9, 10], [10, 11], [11, 12],
+                    [0, 13], [13, 14], [14, 15], [15, 16],
+                    [0, 17], [17, 18], [18, 19], [19, 20],
+                    [5, 9], [9, 13], [13, 17]
+                ];
+
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = color;
+
+                connections.forEach(([start, end]) => {
+                    const startLm = landmarks[start];
+                    const endLm = landmarks[end];
+
+                    ctx.beginPath();
+                    ctx.moveTo(startLm.x * width, startLm.y * height);
+                    ctx.lineTo(endLm.x * width, endLm.y * height);
+                    ctx.stroke();
+                });
+
+                ctx.shadowBlur = 10;
+                landmarks.forEach((lm, index) => {
+                    const x = lm.x * width;
+                    const y = lm.y * height;
+
+                    const isFingertip = index === 4 || index === 8 || index === 12 || index === 16 || index === 20;
+                    const isWrist = index === 0;
+                    const radius = (isFingertip || isWrist) ? 4 : 2;
+
+                    ctx.fillStyle = color;
+                    ctx.beginPath();
+                    ctx.arc(x, y, radius, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+
+                ctx.shadowBlur = 0;
+            }
+
+            drawFaceMesh(landmarks) {
+                const ctx = this.overlayCtx;
+                const width = this.overlayCanvas.width;
+                const height = this.overlayCanvas.height;
+
+                this.drawContour(landmarks, this.FACE_OVAL, '#00ffff', width, height);
+                this.drawContour(landmarks, this.LEFT_EYE, '#00d4aa', width, height);
+                this.drawContour(landmarks, this.RIGHT_EYE, '#00d4aa', width, height);
+                this.drawContour(landmarks, this.LIPS, '#ff00aa', width, height);
+            }
+
+            drawContour(landmarks, indices, color, width, height) {
+                const ctx = this.overlayCtx;
+
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 1.5;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = color;
+
+                ctx.beginPath();
+                indices.forEach((index, i) => {
+                    const lm = landmarks[index];
+                    const x = lm.x * width;
+                    const y = lm.y * height;
+
+                    if (i === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                });
+                ctx.closePath();
+                ctx.stroke();
+
+                ctx.shadowBlur = 0;
+            }
+
+            updateTargets() {
+                const targets = [];
+                const canvasWidth = window.innerWidth;
+                const canvasHeight = window.innerHeight;
+                const videoWidth = this.overlayCanvas.width;
+                const videoHeight = this.overlayCanvas.height;
+
+                if (this.handResults && this.handResults.multiHandLandmarks) {
+                    this.handResults.multiHandLandmarks.forEach((landmarks) => {
+                        const handTargets = createTargetsFromLandmarks(
+                            landmarks,
+                            'hand',
+                            canvasWidth,
+                            canvasHeight,
+                            videoWidth,
+                            videoHeight
+                        );
+                        targets.push(...handTargets);
+                    });
+                }
+
+                if (this.faceResults && this.faceResults.multiFaceLandmarks) {
+                    this.faceResults.multiFaceLandmarks.forEach((landmarks) => {
+                        const faceTargets = createTargetsFromLandmarks(
+                            landmarks,
+                            'face',
+                            canvasWidth,
+                            canvasHeight,
+                            videoWidth,
+                            videoHeight
+                        );
+                        targets.push(...faceTargets);
+                    });
+                }
+
+                if (this.onResultsCallback) {
+                    this.onResultsCallback(targets, this.isDetecting);
+                }
+            }
+
+            getHandResults() {
+                return this.handResults;
+            }
+
+            toggleCamera() {
+                if (this.video.srcObject) {
+                    const tracks = this.video.srcObject.getTracks();
+                    tracks.forEach(track => {
+                        track.enabled = !track.enabled;
+                    });
+                    return tracks[0].enabled;
+                }
+                return false;
+            }
+
+            dispose() {
+                if (this.video.srcObject) {
+                    const tracks = this.video.srcObject.getTracks();
+                    tracks.forEach(track => track.stop());
+                }
+
+                if (this.hands) {
+                    this.hands.close();
+                }
+
+                if (this.faceMesh) {
+                    this.faceMesh.close();
+                }
+            }
+        }
+
+        // ============================================================================
+        // GESTURES MODULE
+        // ============================================================================
+        class GestureDetector {
+            constructor() {
+                this.lastFistDetected = false;
+                this.fistCooldown = false;
+                this.cooldownTime = 1000;
+            }
+
+            detectFist(landmarks) {
+                if (!landmarks || landmarks.length !== 21) return false;
+
+                const wrist = landmarks[0];
+                const thumbTip = landmarks[4];
+                const indexTip = landmarks[8];
+                const middleTip = landmarks[12];
+                const ringTip = landmarks[16];
+                const pinkyTip = landmarks[20];
+
+                const indexBase = landmarks[5];
+                const middleBase = landmarks[9];
+                const ringBase = landmarks[13];
+                const pinkyBase = landmarks[17];
+
+                const thumbDist = this.distance3D(wrist, thumbTip);
+                const indexDist = this.distance3D(wrist, indexTip);
+                const middleDist = this.distance3D(wrist, middleTip);
+                const ringDist = this.distance3D(wrist, ringTip);
+                const pinkyDist = this.distance3D(wrist, pinkyTip);
+
+                const indexBaseDist = this.distance3D(wrist, indexBase);
+                const middleBaseDist = this.distance3D(wrist, middleBase);
+                const ringBaseDist = this.distance3D(wrist, ringBase);
+                const pinkyBaseDist = this.distance3D(wrist, pinkyBase);
+
+                const indexCurled = indexDist < indexBaseDist * 1.3;
+                const middleCurled = middleDist < middleBaseDist * 1.3;
+                const ringCurled = ringDist < ringBaseDist * 1.3;
+                const pinkyCurled = pinkyDist < pinkyBaseDist * 1.3;
+
+                const isFist = indexCurled && middleCurled && ringCurled && pinkyCurled;
+
+                return isFist;
+            }
+
+            distance3D(point1, point2) {
+                const dx = point1.x - point2.x;
+                const dy = point1.y - point2.y;
+                const dz = (point1.z || 0) - (point2.z || 0);
+                return Math.sqrt(dx * dx + dy * dy + dz * dz);
+            }
+
+            checkFistGesture(handResults, onFistDetected) {
+                if (!handResults || !handResults.multiHandLandmarks) return;
+
+                if (this.fistCooldown) return;
+
+                for (const landmarks of handResults.multiHandLandmarks) {
+                    const isFist = this.detectFist(landmarks);
+
+                    if (isFist && !this.lastFistDetected) {
+                        this.lastFistDetected = true;
+                        this.fistCooldown = true;
+
+                        if (onFistDetected) {
+                            onFistDetected();
+                        }
+
+                        setTimeout(() => {
+                            this.fistCooldown = false;
+                        }, this.cooldownTime);
+
+                        return;
+                    }
+
+                    if (!isFist) {
+                        this.lastFistDetected = false;
+                    }
+                }
+            }
+        }
+
+        // ============================================================================
+        // MAIN APPLICATION
+        // ============================================================================
+        class App {
+            constructor() {
+                this.introScreen = document.getElementById('intro-screen');
+                this.appContainer = document.getElementById('app-container');
+                this.enableCameraBtn = document.getElementById('enable-camera-btn');
+                this.particleCanvas = document.getElementById('particle-canvas');
+                this.cameraVideo = document.getElementById('camera-video');
+                this.overlayCanvas = document.getElementById('overlay-canvas');
+                this.modeToggleBtn = document.getElementById('mode-toggle-btn');
+                this.themeBtn = document.getElementById('theme-btn');
+                this.statusText = document.getElementById('status-text');
+                this.statusIndicator = document.getElementById('status-indicator');
+
+                this.particleSystem = null;
+                this.tracker = null;
+                this.gestureDetector = new GestureDetector();
+
+                this.isRunning = false;
+                this.currentMode = 'attract';
+                this.currentTheme = 'Rainbow';
+                this.cameraEnabled = true;
+
+                this.init();
+            }
+
+            init() {
+                this.enableCameraBtn.addEventListener('click', () => this.startApp());
+                document.addEventListener('keydown', (e) => this.handleKeyPress(e));
+                window.addEventListener('resize', () => this.handleResize());
+            }
+
+            async startApp() {
+                try {
+                    this.introScreen.style.display = 'none';
+                    this.appContainer.classList.remove('hidden');
+
+                    this.updateStatus('Initializing camera...', 'loading');
+
+                    this.particleSystem = new ParticleSystem(this.particleCanvas);
+
+                    this.tracker = new Tracker(
+                        this.cameraVideo,
+                        this.overlayCanvas,
+                        (targets, isDetecting) => this.onTrackingResults(targets, isDetecting)
+                    );
+
+                    await this.tracker.initialize();
+
+                    this.updateStatus('Show your hands or face', 'prompt');
+
+                    this.modeToggleBtn.addEventListener('click', () => this.toggleMode());
+                    this.themeBtn.addEventListener('click', () => this.cycleTheme());
+
+                    this.isRunning = true;
+                    this.animate();
+
+                } catch (error) {
+                    console.error('Failed to start app:', error);
+                    this.updateStatus('Failed to start camera', 'error');
+                    alert('Failed to access camera. Please ensure camera permissions are granted.');
+                }
+            }
+
+            animate() {
+                if (!this.isRunning) return;
+
+                if (this.particleSystem) {
+                    this.particleSystem.animate();
+                }
+
+                if (this.tracker) {
+                    const handResults = this.tracker.getHandResults();
+                    this.gestureDetector.checkFistGesture(handResults, () => {
+                        this.cycleTheme();
+                    });
+                }
+
+                requestAnimationFrame(() => this.animate());
+            }
+
+            onTrackingResults(targets, isDetecting) {
+                if (this.particleSystem) {
+                    this.particleSystem.setTargets(targets);
+                }
+
+                if (isDetecting) {
+                    const handCount = this.tracker.handResults?.multiHandLandmarks?.length || 0;
+                    const faceCount = this.tracker.faceResults?.multiFaceLandmarks?.length || 0;
+
+                    let statusMsg = 'Tracking: ';
+                    if (handCount > 0) statusMsg += `${handCount} hand${handCount > 1 ? 's' : ''}`;
+                    if (handCount > 0 && faceCount > 0) statusMsg += ' + ';
+                    if (faceCount > 0) statusMsg += 'face';
+
+                    this.updateStatus(statusMsg, 'detecting');
+                } else {
+                    this.updateStatus('Show your hands or face', 'prompt');
+                }
+            }
+
+            toggleMode() {
+                if (!this.particleSystem) return;
+
+                this.currentMode = this.particleSystem.toggleMode();
+                const modeText = this.currentMode.charAt(0).toUpperCase() + this.currentMode.slice(1);
+                this.modeToggleBtn.textContent = `Mode: ${modeText}`;
+            }
+
+            cycleTheme() {
+                if (!this.particleSystem) return;
+
+                this.currentTheme = getNextTheme(this.currentTheme);
+                this.particleSystem.setTheme(this.currentTheme);
+                this.themeBtn.textContent = `Theme: ${this.currentTheme}`;
+            }
+
+            toggleCamera() {
+                if (!this.tracker) return;
+
+                this.cameraEnabled = this.tracker.toggleCamera();
+                const preview = document.getElementById('camera-preview');
+
+                if (this.cameraEnabled) {
+                    preview.style.opacity = '1';
+                } else {
+                    preview.style.opacity = '0.3';
+                }
+            }
+
+            updateStatus(text, type) {
+                this.statusText.textContent = text;
+
+                this.statusIndicator.classList.remove('detecting', 'prompt', 'loading');
+                if (type) {
+                    this.statusIndicator.classList.add(type);
+                }
+            }
+
+            handleKeyPress(e) {
+                switch(e.key.toLowerCase()) {
+                    case ' ':
+                        e.preventDefault();
+                        this.toggleMode();
+                        break;
+                    case 'v':
+                        e.preventDefault();
+                        this.toggleCamera();
+                        break;
+                    case 't':
+                        e.preventDefault();
+                        this.cycleTheme();
+                        break;
+                }
+            }
+
+            handleResize() {
+                if (this.particleSystem) {
+                    this.particleSystem.resize();
+                }
+            }
+
+            dispose() {
+                this.isRunning = false;
+
+                if (this.tracker) {
+                    this.tracker.dispose();
+                }
+            }
+        }
+
+        // Start the app when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                window.app = new App();
+            });
+        } else {
+            window.app = new App();
+        }
+    </script>
+</body>
+</html>
