@@ -52,11 +52,11 @@ Five stunning themes that cycle when you make a fist gesture:
    # or
    npx serve
    ```
-3. Open `http://localhost:8000/particle-tracker.html` in your browser
+3. Open `http://localhost:8000` in your browser
 4. Click "Enable Camera" and grant camera permissions
 5. Show your hands or face to see particles flow!
 
-**Note**: `particle-tracker.html` is a complete standalone file with all CSS and JavaScript inlined - perfect for easy deployment or sharing.
+**Note**: The entire application is contained in a single `index.html` file with all CSS and JavaScript inlined - perfect for easy deployment or sharing.
 
 ## Browser Requirements
 
@@ -69,11 +69,11 @@ Five stunning themes that cycle when you make a fist gesture:
 
 ```
 particle_playground/
-├── particle-tracker.html  # 🌟 Complete standalone HTML file (all-in-one)
-└── README.md              # Documentation
+├── index.html  # 🌟 Complete standalone HTML file (all-in-one)
+└── README.md   # Documentation
 ```
 
-The entire application is contained in a single `particle-tracker.html` file with all CSS and JavaScript inlined for easy deployment and sharing.
+The entire application is contained in a single `index.html` file with all CSS and JavaScript inlined for easy deployment and sharing.
 
 ## Technical Details
 
