@@ -45,10 +45,6 @@ Five stunning themes that cycle when you make a fist gesture:
 
 ## Getting Started
 
-### Option 1: Single-File Version (Easiest)
-
-The simplest way to run the application:
-
 1. Clone this repository
 2. Serve using a local web server (required for MediaPipe):
    ```bash
@@ -62,16 +58,6 @@ The simplest way to run the application:
 
 **Note**: `particle-tracker.html` is a complete standalone file with all CSS and JavaScript inlined - perfect for easy deployment or sharing.
 
-### Option 2: Modular Version (For Development)
-
-Use the modular version if you want to customize or extend the code:
-
-1. Clone this repository
-2. Serve the files using a local web server
-3. Open `http://localhost:8000/index.html` in your browser
-4. Click "Enable Camera" and grant camera permissions
-5. Show your hands or face to see particles flow!
-
 ## Browser Requirements
 
 - Modern browser with WebGL support
@@ -83,17 +69,11 @@ Use the modular version if you want to customize or extend the code:
 
 ```
 particle_playground/
-├── particle-tracker.html  # 🌟 Single-file standalone version (all-in-one)
-├── index.html             # Main HTML structure (modular)
-├── styles.css             # All styling and UI design
-├── main.js                # Application entry point and coordination
-├── particleSystem.js      # Particle physics and rendering
-├── tracking.js            # MediaPipe integration for hands and face
-├── gestures.js            # Fist gesture detection
-└── themes.js              # Color theme definitions
+├── particle-tracker.html  # 🌟 Complete standalone HTML file (all-in-one)
+└── README.md              # Documentation
 ```
 
-**particle-tracker.html** is the recommended starting point - it contains everything in a single file for easy use!
+The entire application is contained in a single `particle-tracker.html` file with all CSS and JavaScript inlined for easy deployment and sharing.
 
 ## Technical Details
 
