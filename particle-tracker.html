@@ -542,9 +542,10 @@
             draw(ctx, theme) {
                 const color = THEMES[theme].getColor(this.index, this.total);
 
+                // Draw subtle trail
                 for (let i = 1; i < this.trail.length; i++) {
-                    const alpha = (1 - i / this.trail.length) * 0.3;
-                    const size = (1 - i / this.trail.length) * 1.5;
+                    const alpha = (1 - i / this.trail.length) * 0.15;
+                    const size = (1 - i / this.trail.length) * 1;
 
                     ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`;
                     ctx.beginPath();
@@ -552,17 +553,11 @@
                     ctx.fill();
                 }
 
+                // Draw particle as a simple point
                 ctx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
                 ctx.beginPath();
-                ctx.arc(this.x, this.y, 2, 0, Math.PI * 2);
+                ctx.arc(this.x, this.y, 1.5, 0, Math.PI * 2);
                 ctx.fill();
-
-                ctx.shadowBlur = 10;
-                ctx.shadowColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, 2, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.shadowBlur = 0;
             }
         }
 
