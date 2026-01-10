@@ -309,7 +309,7 @@
         <!-- UI Controls -->
         <div id="controls" class="controls">
             <button id="mode-toggle-btn" class="control-btn">Mode: Attract</button>
-            <button id="theme-btn" class="control-btn">Theme: Rainbow</button>
+            <button id="theme-btn" class="control-btn">Theme: Ocean</button>
         </div>
 
         <!-- Status Indicator -->
@@ -542,9 +542,10 @@
             draw(ctx, theme) {
                 const color = THEMES[theme].getColor(this.index, this.total);
 
+                // Draw subtle trail
                 for (let i = 1; i < this.trail.length; i++) {
-                    const alpha = (1 - i / this.trail.length) * 0.3;
-                    const size = (1 - i / this.trail.length) * 1.5;
+                    const alpha = (1 - i / this.trail.length) * 0.15;
+                    const size = (1 - i / this.trail.length) * 1;
 
                     ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`;
                     ctx.beginPath();
@@ -552,17 +553,11 @@
                     ctx.fill();
                 }
 
+                // Draw particle as a simple point
                 ctx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
                 ctx.beginPath();
-                ctx.arc(this.x, this.y, 2, 0, Math.PI * 2);
+                ctx.arc(this.x, this.y, 1.5, 0, Math.PI * 2);
                 ctx.fill();
-
-                ctx.shadowBlur = 10;
-                ctx.shadowColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, 2, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.shadowBlur = 0;
             }
         }
 
@@ -573,7 +568,7 @@
                 this.particles = [];
                 this.targets = [];
                 this.mode = 'attract';
-                this.theme = 'Rainbow';
+                this.theme = 'Ocean';
                 this.particleCount = 12000;
 
                 this.resize();
@@ -691,7 +686,7 @@
                         const t = i / steps;
                         const goldenT = t * INV_PHI + (1 - t) * t;
 
-                        const x = (startLm.x * (1 - goldenT) + endLm.x * goldenT) * canvasWidth;
+                        const x = (1 - (startLm.x * (1 - goldenT) + endLm.x * goldenT)) * canvasWidth;
                         const y = (startLm.y * (1 - goldenT) + endLm.y * goldenT) * canvasHeight;
 
                         targets.push({
@@ -704,7 +699,7 @@
                 });
             } else if (type === 'face') {
                 landmarks.forEach((lm, index) => {
-                    const x = lm.x * canvasWidth;
+                    const x = (1 - lm.x) * canvasWidth;
                     const y = lm.y * canvasHeight;
 
                     let depth = 0;
@@ -1158,7 +1153,7 @@
 
                 this.isRunning = false;
                 this.currentMode = 'attract';
-                this.currentTheme = 'Rainbow';
+                this.currentTheme = 'Ocean';
                 this.cameraEnabled = true;
 
                 this.init();
